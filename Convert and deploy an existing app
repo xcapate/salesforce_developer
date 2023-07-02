@@ -1,0 +1,89 @@
+1) Create a Project and Scratch Org
+	sfdx force:project:create -n MutualFundExplorer
+
+2) Create a scratch org with the alias TempUnmanaged and set it as your default
+	sfdx force:org:create -f config/project-scratch-def.json -a TempUnmanaged -s
+
+3) Install the Unmanaged Package
+	sfdx force:package:install -p 04t46000001DnYm -w 3
+
+4) If the package install doesn't complete in time, run the force:package:install:report command that's displayed by the force:package:install command. The report command looks something like this:
+	sfdx force:package:install:report -i <id> -u TempUnmanaged
+
+5) Open the scratch org
+	sfdx force:org:open
+
+6) Create the Permission Set
+	From Setup, enter Permission Sets in the Quick Find box, then select Permission Sets.
+	Click New.
+	For Label, enter DreamInvest.
+	For API Name, enter DreamInvest.
+	Click Save.
+	Under Apps, click Assigned Apps | Edit.
+	Under Available Apps, select DreamInvest (DreamInvest), then click Add to move it to Enabled Apps.
+	Click Save.	
+
+7) Run the following command in the CLI:
+	sfdx force:source:pull -u TempUnmanaged
+
+8) Extract the Package Source to Your Project
+	create a folder called mdapipackage
+
+9) Retrieve the contents of the DreamInvest package into the mdapipackagefolder
+	sfdx force:mdapi:retrieve -s -r ./mdapipackage -p DreamInvest -u TempUnmanaged -w 10
+
+10) Unzip the unpackaged.zip file.
+11) Delete the unpackaged.zipfile
+
+12) Now you have all the source for the app in metadata format. Next, convert the source files to source format
+
+13) Convert the Source and Push It to a New Scratch Org
+	Why do we convert the metadata source to source format? Metadata format was never designed for developers to work with. It’s stored in one massive file in the production org. Source format breaks up the metadata into smaller files. This makes it easier for development teams to interact with the source and use a VCS.
+
+14) From the MutualFundExplorer folder, convert the contents of the mdapipackage folder
+	sfdx force:mdapi:convert -r mdapipackage/
+
+15) Voila! All the converted source is now in the force-app folder. Why that folder? Because that’s the default specified in sfdx-project.json.
+
+16) Clean up your project by deleting the mdapipackage folder.
+17) Delete the scratch org
+	sfdx force:org:delete -u TempUnmanaged
+
+18) Verify Your Work
+	Did all of that work? The easiest way to find that out is to spin up a new scratch org and try it out. Since you didn’t create this app, you’ll assign a permission set that gives you access to the app.
+
+19) Create a new scratch org
+	sfdx force:org:create -s -f config/project-scratch-def.json
+
+20) Push your local source and metadata to the scratch org
+	sfdx force:source:push
+
+21) Assign a permission set
+	sfdx force:user:permset:assign -n DreamInvest 
+
+22) Open your org
+	sfdx force:org:open
+
+23) Deploy the Converted App Using Metadata API
+	Register Your Testing Environment
+
+24) Log in to your Trailhead Playground org and create an alias for it
+	sfdx auth:web:login -a MyTP
+
+25) Confirm that this org is available
+	sfdx force:org:list
+
+26) Convert Source to Metadata Format and Deploy
+	Create a folder to put the converted files called mdapioutput
+
+27) Next, run the convert command
+	sfdx force:source:convert -d mdapioutput/
+
+28) Deploy it to your testing environment
+	sfdx force:mdapi:deploy -d mdapioutput/ -u MyTP -w 100
+
+29) Assign a permission set:
+	sfdx force:user:permset:assign -n DreamInvest -u MyTP
+
+30) Run your tests and interact with the app:
+	sfdx force:org:open -u MyTP

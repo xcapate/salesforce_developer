@@ -1,0 +1,312 @@
+1) Create the project(Aura components)
+	sfdx force:project:create -n geolocation
+
+2) Create a scratch org with the alias GeoAppScratch
+	sfdx force:org:create -s -f config/project-scratch-def.json -a GeoAppScratch
+
+3) Create Sample Data
+	sfdx force:data:record:create -s Account -v "Name='Marriott Marquis' BillingStreet='780 Mission St' BillingCity='San Francisco' BillingState='CA' BillingPostalCode='94103' Phone='(415) 896-1600' Website='www.marriott.com'"
+
+	sfdx force:data:record:create -s Account -v "Name='Hilton Union Square' BillingStreet='333 O Farrell St' BillingCity='San Francisco' BillingState='CA' BillingPostalCode='94102' Phone='(415) 771-1400' Website='www.hilton.com'"
+
+	sfdx force:data:record:create -s Account -v "Name='Hyatt' BillingStreet='5 Embarcadero Center' BillingCity='San Francisco' BillingState='CA' BillingPostalCode='94111' Phone='(415) 788-1234' Website='www.hyatt.com'"
+
+4) Create a folder called "Data"
+	sfdx force:data:tree:export -q "SELECT Name, BillingStreet, BillingCity, BillingState, BillingPostalCode, Phone, Website FROM Account WHERE BillingStreet != NULL AND BillingCity != NULL and BillingState != NULL" -d ./data
+
+5) If we need to import data from a file
+	sfdx force:data:tree:import --sobjecttreefiles data/Account.json
+
+6) Create the Account Search Apex Controller
+	sfdx force:apex:class:create -n AccountSearchController -d force-app/main/default/classes
+
+7) Edit AccountSearchController
+	public with sharing class AccountSearchController {
+	    @AuraEnabled
+	    public static List<Account> searchAccounts( String searchTerm ) {
+	        List<Account> accounts = new List<Account>();
+	        if ( String.isNotBlank( searchTerm ) ) {
+	            List<List<SObject>> searchResults = [
+	                FIND :searchTerm
+	                RETURNING Account(
+	                    Id, Name, Phone, Website,
+	                    BillingStreet, BillingCity,
+	                    BillingState, BillingPostalCode
+	                    ORDER BY Name
+	                    LIMIT 10
+	                )
+	            ];
+	            accounts = searchResults[0];
+	        }
+	        return accounts;
+	    }
+	}
+
+8) Now, push (synchronize) your new code to the scratch org.
+	sfdx force:source:push
+
+9) Create a custom event
+	sfdx force:lightning:event:create -n AccountsLoaded -d force-app/main/default/aura
+
+10) Open AccountsLoaded.evtand replace the contents with this code, then save the file.
+	<aura:event type="APPLICATION">
+	    <aura:attribute name="accounts" type="Account[]"/>
+	</aura:event>
+
+11) Push your new code to the scratch org
+	sfdx force:source:push
+
+12) Create the component in the aurafolder
+	sfdx force:lightning:component:create -n AccountSearch -d force-app/main/default/aura
+
+13) Open AccountSearch.cmpand replace its contents with the following code, then save the file.
+	<aura:component controller="AccountSearchController">
+	    <aura:registerEvent name="accountsLoaded" type="c:AccountsLoaded"/>
+	    <aura:handler name="init" value="{!this}" action="{!c.onInit}"/>
+	    <aura:attribute name="searchTerm" type="String" default="San Francisco"/>
+	    <lightning:card title="Account Search" iconName="standard:search">
+	        <div class="slds-form slds-p-around_x-small">
+	            <lightning:input
+	                label="Search"
+	                variant="label-hidden"
+	                value="{!v.searchTerm}"
+	                placeholder="Search by name, phone, website, or address"
+	                onchange="{!c.onSearchTermChange}"/>
+	        </div>
+	    </lightning:card>
+	</aura:component>
+
+14) Open AccountSearchController.jsand replace its contents with the following code, then save the file
+	({
+	    onInit: function( component, event, helper ) {
+	        // proactively search on component initialization
+	        var searchTerm = component.get( "v.searchTerm" );
+	        helper.handleSearch( component, searchTerm );
+	    },
+	    onSearchTermChange: function( component, event, helper ) {
+	        // search anytime the term changes in the input field
+	        var searchTerm = component.get( "v.searchTerm" );
+	        helper.handleSearch( component, searchTerm );
+	    }
+	})
+
+15) Open AccountSearchHelper.jsand replace its contents with the following code, then save the file
+	({
+	    // code in the helper is reusable by both
+	    // the controller.js and helper.js files
+	    handleSearch: function( component, searchTerm ) {
+	        var action = component.get( "c.searchAccounts" );
+	        action.setParams({
+	            searchTerm: searchTerm
+	        });
+	        action.setCallback( this, function( response ) {
+	            var event = $A.get( "e.c:AccountsLoaded" );
+	            event.setParams({
+	                "accounts": response.getReturnValue()
+	            });
+	            event.fire();
+	        });
+	        $A.enqueueAction( action );
+	    }
+	})
+
+16) Push the new source to the scratch org
+	sfdx force:source:push
+
+17) Create the Account List Aura Component
+	sfdx force:lightning:component:create -n AccountList -d force-app/main/default/aura
+
+18) Open AccountList.cmpand replace its contents with the following code, then save the file
+	<aura:component>
+	    <aura:handler event="c:AccountsLoaded" action="{!c.onAccountsLoaded}"/>
+	    <lightning:navigation aura:id="navigation"/>
+	    <aura:attribute name="rows" type="Map[]"/>
+	    <aura:attribute name="cols" type="Map[]"/>
+	    <lightning:card title="Account List" iconName="standard:account">
+	        <lightning:datatable
+	            data="{!v.rows}"
+	            columns="{!v.cols}"
+	            keyField="Id"
+	            hideCheckboxColumn="true"
+	            showRowNumberColumn="true"
+	            onrowaction="{!c.onRowAction}"/>
+	    </lightning:card>
+	</aura:component>
+
+19) Open AccountListController.jsand replace its contents with the following code, then save the file.
+	({
+	    onAccountsLoaded: function( component, event, helper ) {
+	        var cols = [
+	            {
+	                'label': 'Name',
+	                'fieldName': 'Name',
+	                'type': 'text'
+	            },
+	            {
+	                'label': 'Phone',
+	                'fieldName': 'Phone',
+	                'type': 'phone'
+	            },
+	            {
+	                'label': 'Website',
+	                'fieldName': 'Website',
+	                'type': 'url'
+	            },
+	            {
+	                'label': 'Action',
+	                'type': 'button',
+	                'typeAttributes': {
+	                    'label': 'View details',
+	                    'name': 'view_details'
+	                }
+	            }
+	        ];
+	        component.set( 'v.cols', cols );
+	        component.set( 'v.rows', event.getParam( 'accounts' ) );
+	    },
+	    onRowAction: function( component, event, helper ) {
+	        var action = event.getParam( 'action' );
+	        var row = event.getParam( 'row' );
+	        if ( action.name == 'view_details' ) {
+	            var navigation = component.find( 'navigation' );
+	            navigation.navigate({
+	                'type': 'standard__recordPage',
+	                'attributes': {
+	                    'objectApiName': 'Account',
+	                    'recordId': row.Id,
+	                    'actionName': 'view'
+	                }
+	            });
+	        }
+	    }
+	})
+
+20) Push the code
+	sfdx force:source:push
+
+21) Create the Account Map Aura Component
+	sfdx force:lightning:component:create -n AccountMap -d force-app/main/default/aura
+
+22) Open AccountMap.cmpand replace its contents with the following code, then save the file
+	<aura:component>
+	    <aura:handler event="c:AccountsLoaded" action="{!c.onAccountsLoaded}"/>
+	    <aura:attribute name="mapMarkers" type="Map[]"/>
+	    <lightning:card title="Account Map" iconName="action:map">
+	        <lightning:map mapMarkers="{!v.mapMarkers}"/>
+	    </lightning:card>
+	</aura:component>
+
+23) Open AccountMapController.js and replace its contents with the following code, then save the file
+	({
+	    onAccountsLoaded: function( component, event, helper ) {
+	        var mapMarkers = [];
+	        var accounts = event.getParam( 'accounts' );
+	        for ( var i = 0; i < accounts.length; i++ ) {
+	            var account = accounts[i];
+	            var marker = {
+	                'location': {
+	                    'Street': account.BillingStreet,
+	                    'City': account.BillingCity,
+	                    'PostalCode': account.BillingPostalCode
+	                },
+	                'title': account.Name,
+	                'description': (
+	                    'Phone: ' + account.Phone +
+	                    'Website: ' + account.Website
+	                ),
+	                'icon': 'standard:location'
+	            };
+	            mapMarkers.push( marker );
+	        }
+	        component.set( 'v.mapMarkers', mapMarkers );
+	    }
+	})
+
+24) Push your new code to the scratch org
+	sfdx force:source:push
+
+25) Create the Account Locator Aura Component
+	sfdx force:lightning:component:create -n AccountLocator -d force-app/main/default/aura
+26) Open AccountLocator.cmp and replace its contents with the following code, then save the file.
+	<aura:component implements="force:appHostable,flexipage:availableForAllPageTypes">
+	    <lightning:layout horizontalAlign="space" multipleRows="true">
+	        <lightning:layoutItem size="12"
+	                              mediumDeviceSize="12"
+	                              padding="around-small">
+	            <c:AccountSearch/>
+	        </lightning:layoutItem>
+	        <lightning:layoutItem size="12"
+	                              mediumDeviceSize="6"
+	                              padding="around-small">
+	            <c:AccountList/>
+	        </lightning:layoutItem>
+	        <lightning:layoutItem size="12"
+	                              mediumDeviceSize="6"
+	                              padding="around-small">
+	            <c:AccountMap/>
+	        </lightning:layoutItem>
+	    </lightning:layout>
+	</aura:component>
+
+27) Push your new code to the scratch org.
+	sfdx force:source:push
+
+28) Create the Account Locator Custom Tab
+	- Open your scratch org
+		sfdx force:org:open
+
+29) From Setup, enter Tabs in the Quick Find box, then click Tabs.
+In the Lightning Component Tabs section, click New and enter the details:
+
+	Lightning Component: c:AccountLocator
+	Tab Label: Account Locator
+	Tab Name: Account_Locator
+	Tab Style: Click the magnifier icon and select Map as the tab icon.
+	Description: Custom tab for Account Locator.
+	Click Next.
+	For Apply one tab visibility to all profiles, choose Tab Hidden.
+	Click Save.
+
+30) Create the Geolocation Permission Set
+	From Setup, enter Permission Sets in the Quick Find box, then click Permission Sets.
+	Click New and enter the details:
+
+	Label: Geolocation
+	API Name: Geolocation
+	Description: Grants access to the Account Geolocation app
+	Click Save.
+	Under Apps, click Object Settings.
+	Click Account Locator.
+	Click Edit.
+	For Tab Settings, select both Available and Visible, then click Save
+
+31) Next, assign the permission set to yourself. We’ll see in a later step how to automate assigning permission sets using Salesforce CLI.
+	Click Manage Assignments, then Add Assignments.
+	Select the checkbox next to the scratch org username (User, User), click Assign, then click Done.
+
+32) Metadata Magic: Pull Changes into Your Project
+Until recently, you’ve been working locally and pushing metadata into your scratch org. In this step, you made some changes directly in that scratch org. Now the magic happens. With one single command, you pull all the metadata that you changed in the scratch org to your local project.
+
+33) In your geolocation project directory, open the .forceignore file and add **/profiles as a new line to the file, then save the file.
+	
+34) Now you’re ready to sync metadata. In the command window, sync the changes you made in the scratch org with your local project.
+
+	sfdx force:source:pull
+
+35) Validate Your App
+While you can absolutely use the same scratch org you’ve used during development to perform your testing, we recommend that you always start with a fresh scratch org. A fresh scratch org ensures you've properly externalized all your source from the org.
+
+36) Create a new scratch org
+	sfdx force:org:create -f config/project-scratch-def.json -a GeoTestOrg
+
+37) Push your local source and metadata to the scratch org.
+	sfdx force:source:push -u GeoTestOrg
+
+38) Assign your permission set.
+	sfdx force:user:permset:assign -n Geolocation -u GeoTestOrg
+
+39) Load your sample data into the org. This is the data you exported from a different scratch org in a previous unit.
+	sfdx force:data:tree:import -f data/Account.json -u GeoTestOrg
+
+40) Open your org.
+	sfdx force:org:open -u GeoTestOrg

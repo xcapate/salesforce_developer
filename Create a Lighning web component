@@ -1,0 +1,46 @@
+Create a Salesforce DX Project
+
+1) In Visual Studio Code, open the Command Palette by pressing Cmd+Shift+P
+2) Type SFDX.
+3) Select SFDX: Create Project.
+4) Press Enter to accept the standard option.
+5) Enter HelloWorldLightningWebComponent as the project name and Press Enter.
+6) Select a folder to store the project.
+7) Click Create Project.
+
+Authorize Your Trailhead Playground
+1) Open the Command Palette Cmd+Shift+P
+2) Type SFDX.
+3) Select SFDX: Authorize an Org.
+4) Press Enter to accept the Project Default login URL option.
+5) Press Enter to accept the default alias. This opens the Salesforce login in a separate browser window.
+6) Log in using your Trailhead Playground credentials.
+7) If prompted to allow access, click Allow.
+
+Create a Lightning Web Component
+1) Open the Command Palette Cmd+Shift+P
+2) Type SFDX.
+3) Select SFDX: Create Lightning Web Component
+4) Enter helloWorld for the name of the new component.
+5) Press Enter to accept the default force-app/main/default/lwc.
+6) Press Enter.
+7) Add code to the JS, HTML and XML files
+
+Deploy to Your Trailhead Playground
+1) Right-click the default folder under force-app/main.
+2) Click in "Deploy source to org"
+
+Add Component to App in Lightning Experience
+1) Open the Command Palette Cmd+Shift+P
+2) Type SFDX.
+3) Select SFDX: Open Default Org.
+4) This opens your Trailhead Playground in a separate browser.
+5) From the App Launcher, find and select Sales.
+6) Click Setup gear then select Edit Page.
+7) Drag the helloWorld Lightning web component from the Custom area of the Lightning Components list to the top of the Page Canvas.
+8) Click Save.
+9) Click Activate.
+10) Click Assign as Org Default.
+11) Click Save.
+12) Click Save again, then click Back arrow to return to the page.
+Refresh the page to view your new component.

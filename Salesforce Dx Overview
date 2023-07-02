@@ -1,0 +1,41 @@
+1) Install the Command Line Interface (CLI)
+	MacOS: https://sfdc.co/sfdx_cli_osx
+	Windows: https://sfdc.co/sfdx_cli_win64
+
+2) Open a terminal window
+
+3) Log In to the Dev Hub
+	sfdx auth:web:login -d -a DevHub
+
+	Output: Successfully authorized rraodv@salesforcedx1.com with org id 00D1I000000n3H5UAI
+	You may now close the browser
+
+4) Download the project dreamhouse from github and create a new branch
+	git clone https://github.com/trailheadapps/dreamhouse-lwc.git
+	cd dreamhouse-lwc
+	git checkout -b my_branch
+
+5) Create the "dreamhouse-org" scratch org(environment) and set it as default:
+	sfdx force:org:create -s -f config/project-scratch-def.json -a dreamhouse-org
+
+6) Open the scratch org you just created by running the command:
+	sfdx force:org:open
+
+7) Push the dreamforce-lwc project into the scratch org with this command:
+	sfdx force:source:push
+
+8) Assign the permission set by running the command:
+	sfdx force:user:permset:assign -n Dreamhouse
+
+9) Import the sample data into the scratch org by running this command:
+	sfdx force:data:tree:import --plan data/sample-data-plan.json
+
+10) Test Your App in the Scratch Org:
+	sfdx force:org:open
+
+Extra:
+
+1) Log In to Sandboxes
+	sfdx auth:web:login -r https://test.salesforce.com -a FullSandbox
+2) View All Orgs
+	sfdx force:org:list
